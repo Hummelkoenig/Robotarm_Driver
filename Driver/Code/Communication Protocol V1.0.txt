@@ -1,0 +1,6 @@
+MOVE motor direction steps speed
+STOP motor
+LIMMIT switch
+SERVO servo angle
+HOME
+ENA
