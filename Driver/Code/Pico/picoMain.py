@@ -144,11 +144,11 @@ def angle_to_pulse(angle):
 
 def servo_control(servo, angle):
     if servo < 1 or servo > 3:
-        print("Invalid servo number. Please choose a servo between 1 and 3.")
+        print("Error: Invalid servo number. Please choose a servo between 1 and 3.")
         return -1
 
     if angle < 0 or angle > 180:
-        print("Servo angle must be between 0 and 180 degrees.")
+        print("Error: Servo angle must be between 0 and 180 degrees.")
         return -1
 
     pulse_us = angle_to_pulse(angle)
@@ -171,7 +171,7 @@ def servo_control(servo, angle):
 
 def limit_switch_status(switch_number):
     if switch_number < 1 or switch_number > 7:
-        print("Invalid limit switch number. Please choose a switch between 1 and 7.")
+        print("Error: Invalid limit switch number. Please choose a switch between 1 and 7.")
         return -1
 
     return limit_switch[switch_number - 1].value()
@@ -198,7 +198,16 @@ def process_command(command):
 
             motion_control(motor, direction, steps, speed)
         else:
-            print("Invalid motor command format. Use: MOVE <motor> <direction> <steps> <speed>")
+            print("Error: Invalid motor command format. Use: MOVE <motor> <direction> <steps> <speed>")
+
+    elif command.startswith("STOP"):
+        parts = command.split()
+
+        if len(parts) == 2:
+            motor = int(parts[1])
+
+            motion_control(motor, 0, 0, 0)
+        print("Motors stopped")
 
     elif command.startswith("SERVO "):
         parts = command.split()
@@ -209,7 +218,7 @@ def process_command(command):
 
             servo_control(servo, angle)
         else:
-            print("Invalid servo command format. Use: SERVO <servo> <angle>")
+            print("Error: Invalid servo command format. Use: SERVO <servo> <angle>")
 
     elif command.startswith("LIMIT "):
         parts = command.split()
@@ -221,7 +230,10 @@ def process_command(command):
             if status >= 0:
                 print("LIMIT {} {}".format(switch_number, status))
         else:
-            print("Invalid limit command format. Use: LIMIT <switch_number>")
+            print("Error: Invalid limit command format. Use: LIMIT <switch_number>")
+
+    elif command.startswith("HOME"):
+        print("Error: Homing sequence not implemented in this version.")
 
     else:
         print("Unknown command: {}".format(command))
@@ -231,11 +243,11 @@ def process_command(command):
 # Main loop
 # =========================
 
-print("Pico robot arm controller started")
+print("Pico online. Awaiting commands...")
 
 while True:
     try:
         command = input()
         process_command(command)
     except Exception as error:
-        print("ERROR: {}".format(error))
+        print("Error: {}".format(error))

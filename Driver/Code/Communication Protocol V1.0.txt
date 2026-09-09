@@ -1,6 +1,5 @@
 MOVE motor direction steps speed
 STOP motor
-LIMMIT switch
+LIMMIT switch_number
 SERVO servo angle
 HOME
-ENA
