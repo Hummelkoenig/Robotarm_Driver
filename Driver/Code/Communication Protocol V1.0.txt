@@ -1,5 +1,5 @@
-MOVE motor direction steps speed
-STOP motor
-LIMMIT switch_number
-SERVO servo angle
+MOVE [motor] [direction] [steps] [speed]
+STOP [motor]
+LIMMIT [switch_number]
+SERVO [servo] [angle]
 HOME

@@ -32,6 +32,9 @@ with serial.Serial(PORT, BAUDRATE, timeout=1) as ser:
                 ser.write(command.encode("ascii"))
                 print("PC: " + command.strip())
 
+                if message == "done":
+                    print("Pico: done")
+
             if mode == "stop":
                 motor = input("motor: ")
 
