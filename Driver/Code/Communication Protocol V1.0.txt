@@ -3,3 +3,4 @@ STOP [motor]
 LIMMIT [switch_number]
 SERVO [servo] [angle]
 HOME
+ping 

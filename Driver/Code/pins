@@ -1,0 +1,38 @@
+ENA = 15
+
+M1DIR = 14
+M1PUL = 13
+
+M2DIR = 12
+M2PUL = 11
+
+M3DIR = 10
+M3PUL = 9
+
+M4DIR = 7
+M4PUL = 6
+
+M5DIR = 5
+M5PUL = 4
+
+M6DIR = 3
+M6PUL = 2
+
+SERVO1 = 8
+SERVO2 = 1
+SERVO3 = 0
+
+LIMIT1 = 22
+LIMIT2 = 21
+LIMIT3 = 20
+LIMIT4 = 19
+LIMIT5 = 18
+LIMIT6 = 17
+LIMIT7 = 16
+
+M1HomeDir = 0
+M2HomeDir = 0
+M3HomeDir = 0
+M4HomeDir = 0
+M5HomeDir = 0
+M6HomeDir = 0
