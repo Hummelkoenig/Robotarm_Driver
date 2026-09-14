@@ -1,42 +1,48 @@
 from machine import Pin, PWM
 import time
+import sys
+import uselect
+
 
 start = True
 
+poll = uselect.poll()
+poll.register(sys.stdin, uselect.POLLIN)
+
 ENA = 15
 
-motor_dir = [14, 12, 10, 7, 5, 3]
-motor_pul = [13, 11, 9, 6, 4, 2]
-
-home_direction = [0, 0, 0, 0, 0, 0] # Direction for homing each motor (0 or 1)
-homed = [False] * 6
+motor_dir_pin = [14, 12, 10, 7, 5, 3]
+motor_pul_pin = [13, 11, 9, 6, 4, 2]
 
 motor_running = [False] * 6
-motor_steps = [0] * 6
+motor_move_steps = [0] * 6
 motor_speed = [0] * 6
 last_step_time = [0] * 6
+motor_position = [0] * 6
 
-LimitSwitches = [22, 21, 20, 19, 18, 17, 16]
+home_direction = [0, 0, 0, 0, 0, 0] # Direction for homing each motor (0 or 1)
+homed = [True] * 6
 
+Limit_switch_pin = [22, 21, 20, 19, 18, 17, 16]
 switch_status = [0] * 7
 
-servoPins = [8, 1, 0] #Multifunktional pins, mainly used for servo control
+servo_pin = [8, 1, 0] #Multifunktional pins, mainly used for servo control
 
 ENA = Pin(ENA, Pin.OUT)
 ENA.value(0) # 0 = enabled
 
-for motor in motor_dir:
-    Pin(motor_dir[motor], Pin.OUT).value(0)
-    motor_dir[motor].value(0)
+for motor in motor_dir_pin:
+    Pin(motor_dir_pin[motor], Pin.OUT).value(0)
+    motor_dir_pin[motor].value(0)
 
-for motor in motor_pul:
-    Pin(motor_pul[motor], Pin.OUT).value(0)
-    motor_pul[motor].value(0)
+for motor in motor_pul_pin:
+    Pin(motor_pul_pin[motor], Pin.OUT).value(0)
+    motor_pul_pin[motor].value(0)
 
-for switch in LimitSwitches:
-    Pin(LimitSwitches[switch], Pin.IN, Pin.PULL_UP)
+for switch in Limit_switch_pin:
+    Pin(Limit_switch_pin[switch], Pin.IN, Pin.PULL_UP)
 
-servo_pwm = [PWM(Pin(pin)) for pin in servoPins]
+servo_pwm = [PWM(Pin(pin)) for pin in servo_pin]
 
 for pwm in servo_pwm:
     pwm.freq(50)
@@ -44,73 +50,14 @@ for pwm in servo_pwm:
 
 
 
-def motion_control(motor, direction, steps, speed):
-    if motor < 0 or motor > 5:
-        print("ERROR: Invalid motor number. Please choose a motor between 0 and 5.")
-        return
-    if direction not in [0, 1]:
-        print("ERROR: Invalid direction. Please choose 0 for forward or 1 for backward.")
-        return
-    if steps < 0:
-        print("ERROR: Invalid number of steps. Please choose a positive integer.")
-        return
-    if speed < 1:
-        print("ERROR: Invalid speed. Please choose a positive integer.")
-        return
-
-    motor_dir[motor].value(direction)
-
-    motor_steps[motor] = steps
-    motor_speed[motor] = speed
-
-    return
-
-
-def limit_switch_status(switch_number):
-    if switch_number < 0 or switch_number > 6:
-        print("ERROR: Invalid limit switch number. Please choose a switch between 0 and 6.")
-        return
-
-    status = check_limit_switch(switch_number)
-
-    print (f"Limit switch {switch_number} is {status}")
-    return status
-
-
-def servo_control(servo_number, angle):
-    if servo_number < 0 or servo_number > 2:
-        print("ERROR: Invalid servo number. Please choose a servo between 0 and 2.")
-        return
-    if angle < 0 or angle > 180:
-        print("ERROR: Invalid angle. Please choose an angle between 0 and 180 degrees.")
-        return
-
-    pulse_us = 500 + (angle * 1900 // 180)
-    duty = pulse_us * 65535 // 20000
-    servo_pwm[servo_number].duty_u16(duty)
-
-    print(f"Servo {servo_number} set to angle {angle} degrees.")
-    return
-
-
-def home_motor(motor):
-    speed = 1000
-    direction = home_direction[motor]
-    motor_dir[motor].value(direction)
-
-    while LimitSwitches[motor].value() == 1:
-        motor_pul[motor].value(1)
-        time.sleep_us(speed)
-        motor_pul[motor].value(0)
-        time.sleep_us(speed)
-    for i in range(10):  # Move a few steps back to ensure the switch is released
-        motor_dir[motor].value(1 - direction)
-        time.sleep_us(speed)
-        motor_pul[motor].value(0)
-        time.sleep_us(speed)
-
-    print(f"Motor {motor} homed.")
-    return True
+def check_commands():
+    if poll.poll(0):
+        try:
+            command = sys.stdin.readline().strip()
+            if command:
+                process_command(command)
+        except Exception as error:
+            print(f"Error: {error}")
 
 
 def process_command(command):
@@ -145,6 +92,7 @@ def process_command(command):
             print("ERROR: Invalid parameter for STOP command.")
             return
         motion_control(motor, 0, 0, 0)  # Stop the motor
+        motor_running[motor] = False
         return 
     
     elif parts[0] == "LIMIT":
@@ -174,36 +122,39 @@ def process_command(command):
         if len(parts) != 1:
             print("ERROR: Invalid HOME command. Please use: HOME")
             return
-        print("Homing all motors...")
-        
-        for motor in range(6):
-            homed[motor] = home_motor(motor)
 
-        if all(homed):
-            print("All motors homed.")
+        # Home all motors
+        
         return
 
     elif parts[0] == "PING":
         print("PONG")
-        return
-
-    elif parts[0] == "PONG":
-        print("Pico online and connected. Awaiting commands...")
-        start = False
         return
     
     else:
         print("ERROR: Unknown command.")
         return
 
+def motion_control(motor, direction, steps, speed):
+    if motor < 0 or motor > 5:
+        print("ERROR: Invalid motor number. Please choose a motor between 0 and 5.")
+        return
+    if direction not in [0, 1]:
+        print("ERROR: Invalid direction. Please choose 0 for forward or 1 for backward.")
+        return
+    if steps < 0:
+        print("ERROR: Invalid number of steps. Please choose a positive integer.")
+        return
+    if speed < 1:
+        print("ERROR: Invalid speed. Please choose a positive integer.")
+        return
 
-def check_commands():
-    try:
-        command = input()
-        process_command(command)
-    except Exception as error:
-        print("Error: {}".format(error))
+    motor_dir_pin[motor].value(direction)
 
+    motor_move_steps[motor] = steps
+    motor_speed[motor] = speed
+
+    return
 
 def update_motor(motor):
     if motor_running[motor] == False:
@@ -216,33 +167,68 @@ def update_motor(motor):
 
     last_step_time[motor] = time_now
 
-    motor_pul[motor].value(1)
+    motor_pul_pin[motor].value(1)
     time.sleep_us(2)
-    motor_pul[motor].value(0)
+    motor_pul_pin[motor].value(0)
 
-    motor_steps[motor] -= 1
+    motor_move_steps[motor] -= 1
+    if motor_dir_pin[motor].value() == 0:
+        motor_position[motor] += 1
+    else:
+        motor_position[motor] -= 1
 
-    if motor_steps[motor] <= 0:
+    if motor_move_steps[motor] <= 0:
         motor_running[motor] = False
         print(f"Motor {motor} has completed its movement.")
 
 
-def check_limit_switch(switch_number):
-    switch_status[switch_number] = LimitSwitches[switch_number].value()
+def limit_switch_status(switch_number):
+    if switch_number < 0 or switch_number > 6:
+        print("ERROR: Invalid limit switch number. Please choose a switch between 0 and 6.")
+        return
+
+    print (f"Limit switch {switch_number} is {switch_status[switch_number]}")
+    return switch_status[switch_number]
+
+
+def servo_control(servo_number, angle):
+    if servo_number < 0 or servo_number > 2:
+        print("ERROR: Invalid servo number. Please choose a servo between 0 and 2.")
+        return
+    if angle < 0 or angle > 180:
+        print("ERROR: Invalid angle. Please choose an angle between 0 and 180 degrees.")
+        return
+
+    pulse_us = 500 + (angle * 1900 // 180)
+    duty = pulse_us * 65535 // 20000
+    servo_pwm[servo_number].duty_u16(duty)
+
+    print(f"Servo {servo_number} set to angle {angle} degrees.")
+    return
+
+
+
+
 
 
 #---LOOP-----------------------------
 
-while True:
-    if start:
-        print("PING")
+while start:
+    print("PING")
+    response = input()
+    if response.strip().upper() == "PONG":
+        print("Pico online and connected. Awaiting commands...")
+        if input("Home all motors? (Y/N): ").strip().upper() == "Y":
+            command = "HOME"
+        else:
+            print("Skipping homing. Motors may not be in a known position.")
+        start = False
 
+while True:
     check_commands()
 
     for motor in range(6):
         update_motor(motor)
 
-    for switch_number in range(len(LimitSwitches)):
-        check_limit_switch(switch_number)
-
-    for servo_number in range(len(servo_pwm)):
+    for switch_number in range(len(Limit_switch_pin)):
+        switch_status[switch_number] = Limit_switch_pin[switch_number].value()       
