@@ -5,17 +5,28 @@ import uselect
 
 
 class Motor:
-    def __init__(self, dir_pin, pul_pin):
+    def __init__(self, dir_pin, pul_pin, limit_switch):
         self.dir = Pin(dir_pin, Pin.OUT)
         self.pul = Pin(pul_pin, Pin.OUT)
+        self.limit_switch = limit_switch
 
         self.running = False
         self.move_steps = 0
         self.step_delay = 0
         self.last_step_time = 0
         self.position = 0
+        self.homing = False
 
     def update(self):
+        # Homing
+        if self.homing:
+            if self.limit_switch.value() == 0:
+                self.running = False
+                self.homing = False
+                self.position = 0
+                print("Motor homed")
+                return
+
         if not self.running:
             return
 
@@ -31,6 +42,7 @@ class Motor:
         self.pul.value(0)
 
         self.move_steps -= 1
+
         if self.dir.value() == 0:
             self.position += 1
         else:
@@ -38,10 +50,13 @@ class Motor:
 
         if self.move_steps <= 0:
             self.running = False
-            print(f"Motor has completed its movement.")
 
     def home(self, direction):
-        return
+        self.dir.value(direction)
+        self.step_delay = 10
+        self.move_steps = 10000
+        self.running = True
+        self.homing = True
         
 
 class Servo:
@@ -72,21 +87,6 @@ poll.register(sys.stdin, uselect.POLLIN)
 ENA = Pin(15, Pin.OUT)
 ENA.value(0) # 0 = enabled
 
-motors = [
-    Motor(14, 13), 
-    Motor(12, 11), 
-    Motor(10, 9), 
-    Motor(7, 6), 
-    Motor(5, 4), 
-    Motor(3, 2)
-    ]
-
-motor_running = [False] * 6
-motor_move_steps = [0] * 6
-motor_step_delay = [0] * 6
-last_step_time = [0] * 6
-motor_position = [0] * 6
-
 home_direction = [0, 0, 0, 0, 0, 0] # Direction for homing each motor (0 or 1)
 homed = [True] * 6
 
@@ -109,6 +109,15 @@ servos = [
     ]
 
 servo_angle = [0] * 3
+
+motors = [
+    Motor(14, 13, limit_switch_pin[0]),
+    Motor(12, 11, limit_switch_pin[1]),
+    Motor(10, 9, limit_switch_pin[2]),
+    Motor(7, 6, limit_switch_pin[3]),
+    Motor(5, 4, limit_switch_pin[4]),
+    Motor(3, 2, limit_switch_pin[5])
+]
 
 
 
@@ -190,10 +199,9 @@ def process_command(command):
         if len(parts) != 1:
             print("ERROR: Invalid HOME command. Please use: HOME")
             return
-
-        for motor_number, motor_instance in enumerate(motors):
-            motor_instance.home(home_direction[motor_number])
-        return
+        
+        for i in range(6):
+        motors[i].home(home_direction[i])
 
     elif parts[0] == "PING":
         print("PONG")
@@ -223,7 +231,6 @@ def motion_control(motor_number, direction, steps, step_delay):
     motor_instance.move_steps = steps
     motor_instance.step_delay = step_delay
     motor_instance.running = steps > 0
-
     return
 
 
@@ -271,4 +278,4 @@ while True:
         motor_instance.update()
 
     for switch_number in range(len(limit_switch_pin)):
-        switch_status[switch_number] = limit_switch_pin[switch_number].value()       
+        switch_status[switch_number] = limit_switch_pin[switch_number].value()
