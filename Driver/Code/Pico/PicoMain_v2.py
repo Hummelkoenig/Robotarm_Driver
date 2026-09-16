@@ -4,36 +4,6 @@ import sys
 import uselect
 
 
-start = True
-
-poll = uselect.poll()
-poll.register(sys.stdin, uselect.POLLIN)
-
-ENA = 15
-ENA = Pin(ENA, Pin.OUT)
-ENA.value(0) # 0 = enabled
-
-motor = [Motor(14, 13), Motor(12, 11), Motor(10, 9), Motor(7, 6), Motor(5, 4), Motor(3, 2)]
-
-motor_running = [False] * 6
-motor_move_steps = [0] * 6
-motor_step_delay = [0] * 6
-last_step_time = [0] * 6
-motor_position = [0] * 6
-
-home_direction = [0, 0, 0, 0, 0, 0] # Direction for homing each motor (0 or 1)
-homed = [True] * 6
-
-limit_switch_pin = [22, 21, 20, 19, 18, 17, 16]
-limit_switch_pin = [Pin(pin, Pin.IN, Pin.PULL_UP) for pin in limit_switch_pin]
-
-switch_status = [0] * 7
-
-
-servo = [Servo(8), Servo(1), Servo(0)]
-
-servo_angle = [0] * 3
-
 class Motor:
     def __init__(self, dir_pin, pul_pin):
         self.dir = Pin(dir_pin, Pin.OUT)
@@ -93,6 +63,55 @@ class Servo:
 
 
 
+
+start = True
+
+poll = uselect.poll()
+poll.register(sys.stdin, uselect.POLLIN)
+
+ENA = Pin(15, Pin.OUT)
+ENA.value(0) # 0 = enabled
+
+motors = [
+    Motor(14, 13), 
+    Motor(12, 11), 
+    Motor(10, 9), 
+    Motor(7, 6), 
+    Motor(5, 4), 
+    Motor(3, 2)
+    ]
+
+motor_running = [False] * 6
+motor_move_steps = [0] * 6
+motor_step_delay = [0] * 6
+last_step_time = [0] * 6
+motor_position = [0] * 6
+
+home_direction = [0, 0, 0, 0, 0, 0] # Direction for homing each motor (0 or 1)
+homed = [True] * 6
+
+limit_switch_pin = [
+    Pin(22, Pin.IN, Pin.PULL_UP),
+    Pin(21, Pin.IN, Pin.PULL_UP),
+    Pin(20, Pin.IN, Pin.PULL_UP),
+    Pin(19, Pin.IN, Pin.PULL_UP),
+    Pin(18, Pin.IN, Pin.PULL_UP),
+    Pin(17, Pin.IN, Pin.PULL_UP),
+    Pin(16, Pin.IN, Pin.PULL_UP)
+]
+
+switch_status = [0] * 7
+
+servos = [
+    Servo(8), 
+    Servo(1), 
+    Servo(0)
+    ]
+
+servo_angle = [0] * 3
+
+
+
 def check_commands():
     if poll.poll(0):
         try:
@@ -116,28 +135,32 @@ def process_command(command):
             print("ERROR: Invalid MOVE command. Please use: MOVE <motor> <direction> <steps> <step_delay>")
             return
         try:
-            motor = int(parts[1])
+            motor_number = int(parts[1])
             direction = int(parts[2])
             steps = int(parts[3])
             step_delay = int(parts[4])
         except ValueError:
             print("ERROR: Invalid parameters for MOVE command.")
             return
-        return motion_control(motor, direction, steps, step_delay)
+        return motion_control(motor_number, direction, steps, step_delay)
 
     elif parts[0] == "STOP":
         if len(parts) != 2:
             print("ERROR: Invalid STOP command. Please use: STOP <motor>")
             return
         try:
-            motor = int(parts[1])
+            motor_number = int(parts[1])
         except ValueError:
             print("ERROR: Invalid parameter for STOP command.")
             return
 
-        motor_running[motor] = False
-        motor_move_steps[motor] = 0
-        print(f"Motor {motor} has been stopped.")
+        if motor_number < 0 or motor_number >= len(motors):
+            print("ERROR: Invalid motor number. Please choose a motor between 0 and 5.")
+            return
+
+        motors[motor_number].running = False
+        motors[motor_number].move_steps = 0
+        print(f"Motor {motor_number} has been stopped.")
         return 
     
     elif parts[0] == "LIMIT":
@@ -168,9 +191,8 @@ def process_command(command):
             print("ERROR: Invalid HOME command. Please use: HOME")
             return
 
-        # Home all motors
-        for motor in motor:
-            motor.home(home_direction[motor])
+        for motor_number, motor_instance in enumerate(motors):
+            motor_instance.home(home_direction[motor_number])
         return
 
     elif parts[0] == "PING":
@@ -181,8 +203,8 @@ def process_command(command):
         print("ERROR: Unknown command.")
         return
 
-def motion_control(motor, direction, steps, step_delay):
-    if motor < 0 or motor > 5:
+def motion_control(motor_number, direction, steps, step_delay):
+    if motor_number < 0 or motor_number >= len(motors):
         print("ERROR: Invalid motor number. Please choose a motor between 0 and 5.")
         return
     if direction not in [0, 1]:
@@ -195,38 +217,14 @@ def motion_control(motor, direction, steps, step_delay):
         print("ERROR: Invalid step_delay. Please choose a positive integer.")
         return
 
-    motor.dir.value(direction)
+    motor_instance = motors[motor_number]
+    motor_instance.dir.value(direction)
 
-    motor.move_steps = steps
-    motor.step_delay = step_delay
-    motor.running = True
+    motor_instance.move_steps = steps
+    motor_instance.step_delay = step_delay
+    motor_instance.running = steps > 0
 
     return
-
-def update_motor(motor):
-    if motor.running == False:
-        return
-    
-    time_now = time.ticks_us()
-
-    if time.ticks_diff(time_now, last_step_time[motor]) < motor.step_delay:
-        return
-
-    last_step_time[motor] = time_now
-
-    motor.pul.value(1)
-    time.sleep_us(2)
-    motor.pul.value(0)
-
-    motor.move_steps -= 1
-    if motor.dir.value() == 0:
-        motor.position += 1
-    else:
-        motor.position -= 1
-
-    if motor.move_steps <= 0:
-        motor.running = False
-        print(f"Motor {motor} has completed its movement.")
 
 
 def limit_switch_status(switch_number):
@@ -246,12 +244,7 @@ def servo_control(servo_number, angle):
         print("ERROR: Invalid angle. Please choose an angle between 0 and 180 degrees.")
         return
 
-    pulse_us = 500 + (angle * 1900 // 180)
-    duty = pulse_us * 65535 // 20000
-    servo_pwm[servo_number].duty_u16(duty)
-
-    print(f"Servo {servo_number} set to angle {angle} degrees.")
-    return
+    servos[servo_number].set_angle(angle)
 
 
 
@@ -263,17 +256,19 @@ while start:
     response = input()
     if response.strip().upper() == "PONG":
         print("Pico online and connected. Awaiting commands...")
-        if input("Home all motors? (Y/N): ").strip().upper() == "Y":
-            command = "HOME"
-        else:
+        x = input("Should all motors home? (Y/N): ").strip().upper()
+        if x == "Y":
+            process_command("HOME")
+            start = False
+        elif x == "N":
             print("Skipping homing. Motors may not be in a known position.")
-        start = False
+            start = False
 
 while True:
     check_commands()
 
-    for motor in motor:
-        motor.update()
+    for motor_instance in motors:
+        motor_instance.update()
 
     for switch_number in range(len(limit_switch_pin)):
         switch_status[switch_number] = limit_switch_pin[switch_number].value()       
