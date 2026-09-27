@@ -97,10 +97,7 @@ ENA.value(0)  # 0 = enabled
 home_direction = [0, 0, 0, 0, 0, 0]
 
 
-# Limit switches
-# 0 = ausgelöst
-# 1 = nicht ausgelöst
-
+# limit switches
 limit_switch_pin = [
     Pin(22, Pin.IN, Pin.PULL_UP),
     Pin(21, Pin.IN, Pin.PULL_UP),
@@ -108,13 +105,13 @@ limit_switch_pin = [
     Pin(19, Pin.IN, Pin.PULL_UP),
     Pin(18, Pin.IN, Pin.PULL_UP),
     Pin(17, Pin.IN, Pin.PULL_UP),
-    Pin(16, Pin.IN, Pin.PULL_UP)   # NOT-AUS
+    Pin(16, Pin.IN, Pin.PULL_UP)
 ]
 
 switch_status = [0] * 7
 
 
-# Motoren
+# Motors
 motors = [
     Motor(14, 13, limit_switch_pin[0]),
     Motor(12, 11, limit_switch_pin[1]),
@@ -376,7 +373,7 @@ while start:
 while True:
 
     # -------------------------
-    # Not-Aus
+    # Emergency stop
     # -------------------------
 
     if limit_switch_pin[6].value() == 0:
@@ -388,7 +385,6 @@ while True:
 
         print("EMERGENCY STOP!")
 
-        # Warten bis Not-Aus wieder losgelassen wird
         while limit_switch_pin[6].value() == 0:
             time.sleep_ms(10)
 

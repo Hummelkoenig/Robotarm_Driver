@@ -1,6 +1,146 @@
-MOVE [motor] [direction] [steps] [speed]
-STOP [motor]
-LIMMIT [switch_number]
-SERVO [servo] [angle]
+Communication Protocol V1.0
+===========================
+
+Commands are sent as one line over the serial connection. Parameters are
+separated by one or more spaces. Commands are case-insensitive.
+
+Motor numbering starts at 0. The available motor numbers are 0 to 5.
+
+
+Startup handshake
+-----------------
+
+When the Pico starts, it sends:
+
+	PING
+
+The host must answer with:
+
+	PONG
+
+After receiving PONG, the Pico reports that it is online and asks whether all
+motors should be homed. Answer `Y` to start homing or `N` to skip homing.
+
+
+MOVE
+----
+
+Syntax:
+
+	MOVE <motor_number> <direction> <steps> <step_delay>
+
+Moves one motor by the requested number of steps.
+
+Parameters:
+
+* `<motor_number>`: Integer from 0 to 5.
+* `<direction>`: `0` for forward or `1` for backward.
+* `<steps>`: Non-negative integer. A value of 0 does not start the motor.
+* `<step_delay>`: Non-negative delay between steps in microseconds.
+
+Example:
+
+	MOVE 0 0 200 1000
+
+
+STOP
+----
+
+Syntax:
+
+	STOP <motor_number>
+
+Stops the selected motor immediately and cancels any active homing operation.
+
+Example:
+
+	STOP 0
+
+
+LIMIT
+-----
+
+Syntax:
+
+	LIMIT <switch_number>
+
+Returns the current state of a limit switch.
+
+Parameters:
+
+* `<switch_number>`: Integer from 0 to 6.
+* `0` means the switch is active/pressed.
+* `1` means the switch is inactive/not pressed.
+
+Example:
+
+	LIMIT 0
+
+Response format:
+
+	Limit switch 0 is 1
+
+
+SERVO
+-----
+
+Syntax:
+
+	SERVO <servo_number> <angle>
+
+Sets the angle of one servo.
+
+Parameters:
+
+* `<servo_number>`: Integer from 0 to 2.
+* `<angle>`: Integer from 0 to 180 degrees.
+
+Example:
+
+	SERVO 1 90
+
+
 HOME
-ping 
+----
+
+Syntax:
+
+	HOME
+
+Starts the homing procedure for all six motors. Each motor moves in its
+configured home direction until its limit switch is activated or the maximum
+homing distance is reached.
+
+Response:
+
+	Homing started.
+
+
+PING
+----
+
+Syntax:
+
+	PING
+
+Tests whether the Pico is responding.
+
+Response:
+
+	PONG
+
+
+Emergency stop
+--------------
+
+Limit switch 6 is reserved as the emergency stop input. When it is active,
+all motors are stopped and the motor driver is disabled. The driver is
+enabled again after the emergency-stop switch is released.
+
+
+Errors
+------
+
+Invalid commands or parameters are reported with a line beginning with:
+
+	ERROR:
