@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Robotarm Command-UI</title>
+</head>
+
+<body>
+
+    <h1>Command Interface</h1>
+
+
+    <h2>Mode</h2>
+
+    <div style="display: flex; gap: 10px;">
+
+        <label>
+            <input type="radio" name="mode" value="Move" onchange="updateInputs()">
+            Move
+        </label>
+
+        <label>
+            <input type="radio" name="mode" value="Stop" onchange="updateInputs()">
+            Stop
+        </label>
+
+        <label>
+            <input type="radio" name="mode" value="Limit" onchange="updateInputs()">
+            Limit
+        </label>
+
+        <label>
+            <input type="radio" name="mode" value="Servo" onchange="updateInputs()">
+            Servo
+        </label>
+
+        <label>
+            <input type="radio" name="mode" value="Home" onchange="updateInputs()">
+            Home
+        </label>
+
+        <label>
+            <input type="radio" name="mode" value="Ping" onchange="updateInputs()">
+            Ping
+        </label>
+
+    </div>
+
+
+    <div id="inputs">
+
+        <h2>Inputs</h2>
+
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+
+            <input id="input1" type="text">
+            <input id="input2" type="text">
+            <input id="input3" type="text">
+            <input id="input4" type="text">
+
+        </div>
+
+    </div>
+
+
+    <br><br>
+
+    <button onclick="sendComand()">Senden</button>
+
+
+    <br><br>
+
+    <h2>Console</h2>
+
+    <div id="console"
+        style="
+            width: WIDTH;
+            height: 250px;
+            background-color: black;
+            color: white;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+        ">
+    </div>
+
+
+    <script>
+
+        function updateInputs() {
+
+            // Ausgewählten Mode herausfinden
+            let mode = document.querySelector(
+                'input[name="mode"]:checked'
+            ).value;
+
+
+            // Alle Inputs anzeigen
+            document.getElementById("inputs").style.display = "block";
+
+            document.getElementById("input1").style.display = "none";
+            document.getElementById("input2").style.display = "none";
+            document.getElementById("input3").style.display = "none";
+            document.getElementById("input4").style.display = "none";
+
+
+            // Je nach Mode die benötigten Inputs anzeigen
+
+            if (mode == "Move") {
+                document.getElementById("input1").style.display = "inline";
+                document.getElementById("input2").style.display = "inline";
+                document.getElementById("input3").style.display = "inline";
+                document.getElementById("input4").style.display = "inline";
+            }
+
+            if (mode == "Stop") {
+                document.getElementById("input1").style.display = "inline";
+            }
+
+            if (mode == "Limit") {
+                document.getElementById("input1").style.display = "inline";
+            }
+
+            if (mode == "Servo") {
+                document.getElementById("input1").style.display = "inline";
+                document.getElementById("input2").style.display = "inline";
+            }
+
+            if (mode == "Home") {
+                document.getElementById("inputs").style.display = "none";
+            }
+
+            if (mode == "Ping") {
+                document.getElementById("inputs").style.display = "none";
+            }
+        }
+
+
+        function sendComand() {
+
+            // Ausgewählten Mode herausfinden
+            let mode = document.querySelector(
+                'input[name="mode"]:checked'
+            ).value;
+
+
+            // Eingaben aus den Textfeldern holen
+            let input1 = document.getElementById("input1").value;
+            let input2 = document.getElementById("input2").value;
+            let input3 = document.getElementById("input3").value;
+            let input4 = document.getElementById("input4").value;
+
+
+            // Alles zusammen an Python senden
+            fetch("/receiveInputs", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    mode: mode,
+                    input1: input1,
+                    input2: input2,
+                    input3: input3,
+                    input4: input4
+
+                })
+
+            });
+
+        }
+
+        function updateConsole() {
+
+            fetch("/console")
+                .then(response => response.json())
+                .then(messages => {
+
+                    let consoleElement = document.getElementById("console");
+
+                    consoleElement.innerHTML = "";
+
+                    messages.forEach(message => {
+
+                        consoleElement.innerHTML += message + "<br>";
+
+                    });
+
+                    // Automatisch nach unten scrollen
+                    consoleElement.scrollTop = consoleElement.scrollHeight;
+
+                });
+        }
+        setInterval(updateConsole, 500);
+    </script>
+
+</body>
+
+</html>
